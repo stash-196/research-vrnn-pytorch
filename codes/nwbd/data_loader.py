@@ -122,7 +122,9 @@ def load_data(experiment, train, batchsize, resample_val, shuffle, seed_val, seq
 
 
 if __name__ == "__main__":
-    data, neuron_ids, trial_ids = load_data(experiment=3, train=True, batchsize=100, resample_val=1, shuffle=False, seed_val=111, seq_len=300, neur_count=50)
+    data, neuron_ids, trial_ids = load_data(experiment=1, train=True, batchsize=100, resample_val=1, shuffle=False, seed_val=111, seq_len=300, neur_count=50)
+    # data, neuron_ids, trial_ids = load_data(experiment=2, train=True, batchsize=100, resample_val=1, shuffle=False, seed_val=111, seq_len=300, neur_count=50)
+    # data, neuron_ids, trial_ids = load_data(experiment=4, train=True, batchsize=100, resample_val=1, shuffle=False, seed_val=111, seq_len=300, neur_count=50)
 
     print(data.shape)
     print(neuron_ids.shape)
