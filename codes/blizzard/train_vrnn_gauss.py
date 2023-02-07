@@ -6,7 +6,17 @@ import torch.utils.data
 from torchvision import datasets, transforms
 from torch.autograd import Variable
 import matplotlib.pyplot as plt 
-from model import VRNN
+
+import sys
+import os
+FILE_DIR = os.path.dirname(__file__)
+ROOT_DIR = os.path.abspath(os.path.join(FILE_DIR, '..', '..'))
+sys.path.insert(0, ROOT_DIR)
+SAVE_DIR = os.path.join(ROOT_DIR, 'saves', 'blizzard')
+DATA_DIR = os.path.join(ROOT_DIR, 'data/blizzard/adventure_and_science_fiction')
+
+from codes.MNIST.vrnn_gauss import VRNN
+from codes.blizzard.audio_dataset import AudioDataset, fetch_npy_file_paths
 
 """implementation of the Variational Recurrent
 Neural Network (VRNN) from https://arxiv.org/abs/1506.02216
@@ -15,7 +25,7 @@ inference, prior, and generating models."""
 
 def train(epoch):
     train_loss = 0
-    for batch_idx, (data, _) in enumerate(train_loader):
+    for batch_idx, data in enumerate(train_loader):
 
         #transforming data
         data = data.to(device)
@@ -80,6 +90,10 @@ if torch.cuda.is_available():
 else:
     device = torch.device('cpu')
 
+
+
+
+# ToDo: change parameters for blizzard
 #hyperparameters
 x_dim = 28
 h_dim = 100
@@ -98,16 +112,10 @@ torch.manual_seed(seed)
 plt.ion()
 
 #init model + optimizer + datasets
+file_paths = fetch_npy_file_paths(DATA_DIR)
 
-train_loader = torch.utils.data.DataLoader(
-    datasets.MNIST('data', train=True, download=True,
-        transform=transforms.ToTensor()),
-    batch_size=batch_size, shuffle=True)
-
-test_loader = torch.utils.data.DataLoader(
-    datasets.MNIST('data', train=False, 
-        transform=transforms.ToTensor()),
-    batch_size=batch_size, shuffle=True)
+train_loader = torch.utils.data.DataLoader(AudioDataset(file_paths, train=True))
+test_loader = torch.utils.data.DataLoader(AudioDataset(file_paths, train=False))
 
 model = VRNN(x_dim, h_dim, z_dim, n_layers)
 model = model.to(device)
@@ -121,6 +129,8 @@ for epoch in range(1, n_epochs + 1):
 
     #saving model
     if epoch % save_every == 1:
-        fn = 'saves/vrnn_state_dict_'+str(epoch)+'.pth'
+        fn = os.path.join(SAVE_DIR, 'vrnn_state_dict_'+str(epoch)+'.pth')
         torch.save(model.state_dict(), fn)
         print('Saved model to '+fn)
+
+

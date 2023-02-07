@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
-from model import VRNN
+from vrnn_gauss import VRNN
 
 #hyperparameters
 x_dim = 28
@@ -20,3 +20,4 @@ model.to(device)
 sample = model.sample(28*6)
 plt.imshow(sample.cpu().numpy(), cmap='gray')
 plt.show()
+

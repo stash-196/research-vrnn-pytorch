@@ -122,7 +122,7 @@ class VRNN(nn.Module):
             (all_enc_mean, all_enc_std), \
             (all_dec_mean, all_dec_std)
 
-
+    # What does this do?
     def sample(self, seq_len):
 
         sample = torch.zeros(seq_len, self.x_dim, device=device)
@@ -184,3 +184,4 @@ class VRNN(nn.Module):
 
     def _nll_gauss(self, mean, std, x):
         return torch.sum(torch.log(std + EPS) + torch.log(2*torch.pi)/2 + (x - mean).pow(2)/(2*std.pow(2)))
+
