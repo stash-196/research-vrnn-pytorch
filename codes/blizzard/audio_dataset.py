@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import fnmatch
 from sklearn.model_selection import train_test_split
-
+import bisect
 import sys
 import os
 
@@ -12,36 +12,41 @@ sys.path.insert(0, ROOT_DIR)
 
 
 class AudioDataset(torch.utils.data.Dataset):
-    def __init__(self, path_to_files, train=True, mean=None, std=None, random_state=42):
+    def __init__(self, path_to_files, chunk_length=200, train=True, mean=None, std=None, random_state=42):
         self.train = train
         file_paths_train, file_paths_test = train_test_split(
             path_to_files, test_size=0.2, random_state=random_state,
         )
+
         self.files = file_paths_train if train else file_paths_test
 
-        if mean==None or std==None:
+        self.chunk_length = chunk_length
+
+        if mean == None or std == None:
             self.mean, self.std = self.compute_mean_and_std()
 
+        self.audio_lengths = [np.load(file).shape[0] for file in self.files]
+        self.cumulative_lengths = np.cumsum(self.audio_lengths)
+        self.n_chunks = sum(self.audio_lengths) // chunk_length
+
     def __len__(self):
-        return len(self.files)
+        return self.n_chunks
 
     def __getitem__(self, idx):
-        sample = np.load(self.files[idx])
-        sample = torch.from_numpy(sample)
+        chunk_idx = idx
+        file_idx = bisect.bisect_left(self.cumulative_lengths, chunk_idx * self.chunk_length)
+        start = chunk_idx * self.chunk_length - (self.cumulative_lengths[file_idx - 1] if file_idx > 0 else 0)
+        end = start + self.chunk_length
+        sample = torch.from_numpy(np.load(self.files[file_idx])[start:end]).double()
         sample = (sample - self.mean) / self.std
         return sample
 
     def compute_mean_and_std(self):
-        first_sample = np.load(self.files[0])
-        self.mean = np.mean(first_sample)
-        self.std = np.std(first_sample)
-        for i in range(1, len(self.files)):
-            sample = np.load(self.files[i])
-            self.mean = ((self.mean * i) + np.mean(sample)) / (i + 1)
-            self.std = ((self.std * i) + np.std(sample)) / (i + 1)
-        mean = torch.tensor(self.mean)
-        std = torch.tensor(self.std)
-        return mean, std
+        samples = np.concatenate([np.load(file) for file in self.files])
+        mean = samples.mean()
+        std = samples.std()
+        return torch.tensor(mean), torch.tensor(std)
+
 
 
 def fetch_npy_file_paths(data_dir):
@@ -59,8 +64,10 @@ if __name__ == "__main__":
     data_dir = os.path.join(ROOT_DIR, "data/blizzard/adventure_and_science_fiction")
 
     file_paths = fetch_npy_file_paths(data_dir=data_dir)
-
-    train_loader = torch.utils.data.DataLoader(AudioDataset(file_paths, train=True, random_state=42))
-    test_loader = torch.utils.data.DataLoader(AudioDataset(file_paths, train=False, random_state=42))
+    dataset = AudioDataset(file_paths, train=True, random_state=42)
+    train_loader = torch.utils.data.DataLoader(AudioDataset(file_paths, train=True, random_state=42), batch_size=128)
+    for b in train_loader:
+        print(b)
+    test_loader = torch.utils.data.DataLoader(AudioDataset(file_paths, train=False, random_state=42), batch_size=128)
     print(train_loader)
     print(test_loader)

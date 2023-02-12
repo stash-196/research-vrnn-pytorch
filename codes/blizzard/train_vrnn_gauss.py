@@ -30,7 +30,7 @@ def train(epoch):
         #transforming data
         data = data.to(device)
         data = data.squeeze().transpose(0, 1) # (seq, batch, elem)
-        data = (data - data.min()) / (data.max() - data.min())
+        # data = (data - data.min()) / (data.max() - data.min()) #normalization already applied
         
         #forward + backward + optimize
         optimizer.zero_grad()
@@ -66,7 +66,7 @@ def test(epoch):
 
     mean_kld_loss, mean_nll_loss = 0, 0
     with torch.no_grad():
-        for i, (data, _) in enumerate(test_loader):                                            
+        for i, data in enumerate(test_loader):                                            
 
             data = data.to(device)
             data = data.squeeze().transpose(0, 1)
@@ -95,14 +95,16 @@ else:
 
 # ToDo: change parameters for blizzard
 #hyperparameters
-x_dim = 28
-h_dim = 100
-z_dim = 16
-n_layers =  1
-n_epochs = 25
+frame_size = 200
+seq_len = 8000
+x_dim = 200
+h_dim = 4000
+z_dim = 200
+n_layers = 1
+n_epochs = 10
 clip = 10
 learning_rate = 1e-3
-batch_size = 8 #128
+batch_size = 128
 seed = 128
 print_every = 1000 # batches
 save_every = 10 # epochs
@@ -114,8 +116,8 @@ plt.ion()
 #init model + optimizer + datasets
 file_paths = fetch_npy_file_paths(DATA_DIR)
 
-train_loader = torch.utils.data.DataLoader(AudioDataset(file_paths, train=True))
-test_loader = torch.utils.data.DataLoader(AudioDataset(file_paths, train=False))
+train_loader = torch.utils.data.DataLoader(AudioDataset(file_paths, chunk_length=frame_size, train=True), batch_size=batch_size)
+test_loader = torch.utils.data.DataLoader(AudioDataset(file_paths, chunk_length=frame_size, train=False), batch_size=batch_size)
 
 model = VRNN(x_dim, h_dim, z_dim, n_layers)
 model = model.to(device)
