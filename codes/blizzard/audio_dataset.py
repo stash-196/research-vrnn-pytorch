@@ -12,7 +12,7 @@ sys.path.insert(0, ROOT_DIR)
 
 
 class AudioDataset(torch.utils.data.Dataset):
-    def __init__(self, path_to_files, chunk_length=200, train=True, mean=None, std=None, random_state=42):
+    def __init__(self, path_to_files, frame_length=200, seq_len=1, train=True, mean=None, std=None, chunk_limit=None, random_state=42):
         self.train = train
         file_paths_train, file_paths_test = train_test_split(
             path_to_files, test_size=0.2, random_state=random_state,
@@ -20,26 +20,44 @@ class AudioDataset(torch.utils.data.Dataset):
 
         self.files = file_paths_train if train else file_paths_test
 
-        self.chunk_length = chunk_length
+        self.frame_length = frame_length
+        self.seq_len = seq_len
+        self.chunk_limit = chunk_limit
+        self.chunk_length = self.frame_length * self.seq_len
 
         if mean == None or std == None:
             self.mean, self.std = self.compute_mean_and_std()
 
         self.audio_lengths = [np.load(file).shape[0] for file in self.files]
         self.cumulative_lengths = np.cumsum(self.audio_lengths)
-        self.n_chunks = sum(self.audio_lengths) // chunk_length
+        self.n_chunks = sum(self.audio_lengths) // self.chunk_length
 
     def __len__(self):
-        return self.n_chunks
+        if self.chunk_limit == None:
+            return self.n_chunks
+        elif self.chunk_limit > self.n_chunks:
+            print('sample_limit larger than sample size')
+            return self.n_chunks
+        else:
+            return self.chunk_limit
+
 
     def __getitem__(self, idx):
-        chunk_idx = idx
-        file_idx = bisect.bisect_left(self.cumulative_lengths, chunk_idx * self.chunk_length)
-        start = chunk_idx * self.chunk_length - (self.cumulative_lengths[file_idx - 1] if file_idx > 0 else 0)
-        end = start + self.chunk_length
-        sample = torch.from_numpy(np.load(self.files[file_idx])[start:end]).double()
+        chunk_idx = idx * self.chunk_length
+        file_idx = bisect.bisect_left(self.cumulative_lengths, chunk_idx)
+        start = chunk_idx - (self.cumulative_lengths[file_idx - 1] if file_idx > 0 else 0)
+        sample = []
+        while len(sample) < self.chunk_length:
+            end = start + self.chunk_length - len(sample)
+            file_samples = np.load(self.files[file_idx])[start:end]
+            sample.extend(file_samples)
+            file_idx += 1
+            start = 0
+        sample = torch.asarray(sample).float() #.double()
         sample = (sample - self.mean) / self.std
+        sample = sample.reshape(self.seq_len, -1, self.frame_length)
         return sample
+
 
     def compute_mean_and_std(self):
         samples = np.concatenate([np.load(file) for file in self.files])
@@ -65,7 +83,7 @@ if __name__ == "__main__":
 
     file_paths = fetch_npy_file_paths(data_dir=data_dir)
     dataset = AudioDataset(file_paths, train=True, random_state=42)
-    train_loader = torch.utils.data.DataLoader(AudioDataset(file_paths, train=True, random_state=42), batch_size=128)
+    train_loader = torch.utils.data.DataLoader(AudioDataset(file_paths, train=True, seq_len=200, chunk_limit=50, random_state=42), batch_size=128)
     for b in train_loader:
         print(b)
     test_loader = torch.utils.data.DataLoader(AudioDataset(file_paths, train=False, random_state=42), batch_size=128)
