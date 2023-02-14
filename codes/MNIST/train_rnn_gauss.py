@@ -14,7 +14,7 @@ ROOT_DIR = os.path.abspath(os.path.join(FILE_DIR, '..', '..'))
 sys.path.insert(0, ROOT_DIR)
 SAVE_DIR = os.path.join(ROOT_DIR, 'saves', 'MNIST')
 
-from codes.MNIST.vrnn_gauss import VRNN
+from codes.MNIST.rnn_gauss import RNN
 
 """implementation of the Variational Recurrent
 Neural Network (VRNN) from https://arxiv.org/abs/1506.02216
@@ -34,10 +34,9 @@ def train(epoch):
         
         #forward + backward + optimize
         optimizer.zero_grad()
-        kld_loss, nll_loss, _, _ = model(data)
-        assert not (kld_loss.isnan() or nll_loss.isnan())
-        loss = kld_loss + nll_loss
-        losses.append([kld_loss, nll_loss])
+        loss = model(data)
+        assert not loss.isnan()
+        losses.append(loss)
         loss.backward()
         optimizer.step()
         assert not torch.any(torch.asarray([torch.any(param.isnan()) for param in model.parameters()]))
@@ -46,13 +45,12 @@ def train(epoch):
 
         #printing
         if batch_idx % print_every == 0:
-            print('Train Epoch: {} [{}/{} ({:.0f}%)]\t KLD Loss: {:.6f} \t NLL Loss: {:.6f}'.format(
+            print('Train Epoch: {} [{}/{} ({:.0f}%)]\t Loss: {:.6f}'.format(
                 epoch, batch_idx * batch_size, batch_size * (len(train_loader.dataset)//batch_size),
                 100. * batch_idx / len(train_loader),
-                kld_loss / batch_size,
-                nll_loss / batch_size))
-
-            # Input is the length of sequence
+                loss / batch_size,
+                ))
+            
             sample = model.sample(torch.tensor(28, device=device))
             plt.imshow(sample.to(torch.device('cpu')).numpy())
             plt.pause(1e-6)
@@ -67,7 +65,7 @@ def test(epoch):
     """uses test data to evaluate 
     likelihood of the model"""
 
-    mean_kld_loss, mean_nll_loss = 0, 0
+    mean_loss = 0
     with torch.no_grad():
         for i, (data, _) in enumerate(test_loader):                                            
 
@@ -75,15 +73,12 @@ def test(epoch):
             data = data.squeeze().transpose(0, 1)
             data = (data - data.min()) / (data.max() - data.min())
 
-            kld_loss, nll_loss, _, _ = model(data)
-            mean_kld_loss += kld_loss.item()
-            mean_nll_loss += nll_loss.item()
+            loss = model(data)
+            mean_loss += loss.item()
 
-    mean_kld_loss /= len(test_loader.dataset)
-    mean_nll_loss /= len(test_loader.dataset)
+    mean_loss /= len(test_loader.dataset)
    
-    print('====> Test set loss: KLD Loss = {:.4f}, NLL Loss = {:.4f} '.format(
-        mean_kld_loss, mean_nll_loss))
+    print('====> Test set loss: Loss = {:.4f}'.format(mean_loss))
 
 
 # changing device
@@ -96,7 +91,6 @@ else:
 #hyperparameters
 x_dim = 28
 h_dim = 100
-z_dim = 16
 n_layers =  1
 n_epochs = 25
 clip = 10
@@ -122,7 +116,7 @@ test_loader = torch.utils.data.DataLoader(
         transform=transforms.ToTensor()),
     batch_size=batch_size, shuffle=True)
 
-model = VRNN(x_dim, h_dim, z_dim, n_layers)
+model = RNN(x_dim, h_dim, n_layers)
 model = model.to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
@@ -135,6 +129,6 @@ for epoch in range(1, n_epochs + 1):
 
     #saving model
     if epoch % save_every == 1:
-        fn = os.path.join(SAVE_DIR, f'vrnn_state_dict_{conditions}_ep{epoch}.pth')
+        fn = os.path.join(SAVE_DIR, f'rnn_state_dict_{conditions}_ep{epoch}.pth')
         torch.save(model.state_dict(), fn)
         print('Saved model to '+fn)
