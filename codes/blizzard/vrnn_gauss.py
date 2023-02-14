@@ -26,22 +26,47 @@ class VRNN(nn.Module):
         self.z_dim = z_dim
         self.n_layers = n_layers
 
+        q_z_dim = 500
+        p_z_dim = 500
+        p_x_dim = 600
+        x2s_dim = 600
+        z2s_dim = 500
+        target_dim = x_dim
+
         #feature-extracting transformations
         self.phi_x = nn.Sequential(
             nn.Linear(x_dim, h_dim),
             nn.ReLU(),
             nn.Linear(h_dim, h_dim),
-            nn.ReLU())
+            nn.ReLU(),
+            nn.Linear(h_dim, h_dim),
+            nn.ReLU(),
+            nn.Linear(h_dim, h_dim),
+            nn.ReLU(),
+            )
+
         self.phi_z = nn.Sequential(
             nn.Linear(z_dim, h_dim),
-            nn.ReLU())
+            nn.ReLU(),
+            nn.Linear(h_dim, h_dim),
+            nn.ReLU(),
+            nn.Linear(h_dim, h_dim),
+            nn.ReLU(),
+            nn.Linear(h_dim, h_dim),
+            nn.ReLU(),
+            )
 
         #encoder
         self.enc = nn.Sequential(
             nn.Linear(h_dim + h_dim, h_dim),
             nn.ReLU(),
             nn.Linear(h_dim, h_dim),
-            nn.ReLU())
+            nn.ReLU(),
+            nn.Linear(h_dim, h_dim),
+            nn.ReLU(),
+            nn.Linear(h_dim, h_dim),
+            nn.ReLU(),
+            )
         self.enc_mean = nn.Linear(h_dim, z_dim)
         self.enc_std = nn.Sequential(
             nn.Linear(h_dim, z_dim),
@@ -50,7 +75,14 @@ class VRNN(nn.Module):
         #prior
         self.prior = nn.Sequential(
             nn.Linear(h_dim, h_dim),
-            nn.ReLU())
+            nn.ReLU(),
+            nn.Linear(h_dim, h_dim),
+            nn.ReLU(),
+            nn.Linear(h_dim, h_dim),
+            nn.ReLU(),
+            nn.Linear(h_dim, h_dim),
+            nn.ReLU(),
+            )
         self.prior_mean = nn.Linear(h_dim, z_dim)
         self.prior_std = nn.Sequential(
             nn.Linear(h_dim, z_dim),
@@ -61,14 +93,16 @@ class VRNN(nn.Module):
             nn.Linear(h_dim + h_dim, h_dim),
             nn.ReLU(),
             nn.Linear(h_dim, h_dim),
-            nn.ReLU())
+            nn.ReLU(),
+            nn.Linear(h_dim, h_dim),
+            nn.ReLU(),
+            nn.Linear(h_dim, h_dim),
+            nn.ReLU(),
+            )
+        self.dec_mean = nn.Linear(h_dim, x_dim)
         self.dec_std = nn.Sequential(
             nn.Linear(h_dim, x_dim),
             nn.Softplus())
-        #self.dec_mean = nn.Linear(h_dim, x_dim)
-        self.dec_mean = nn.Sequential(
-            nn.Linear(h_dim, x_dim),
-            nn.Sigmoid())
 
         #recurrence
         self.rnn = nn.GRU(h_dim + h_dim, h_dim, n_layers, bias)
@@ -110,8 +144,8 @@ class VRNN(nn.Module):
 
             #computing losses
             kld_loss += self._kld_gauss(enc_mean_t, enc_std_t, prior_mean_t, prior_std_t)
-            #nll_loss += self._nll_gauss(dec_mean_t, dec_std_t, x[t])
-            nll_loss += self._nll_bernoulli(dec_mean_t, x[t])
+            nll_loss += self._nll_gauss(dec_mean_t, dec_std_t, x[t])
+            # nll_loss += self._nll_bernoulli(dec_mean_t, x[t])
 
             all_enc_std.append(enc_std_t)
             all_enc_mean.append(enc_mean_t)
@@ -183,5 +217,5 @@ class VRNN(nn.Module):
 
 
     def _nll_gauss(self, mean, std, x):
-        return torch.sum(torch.log(std + EPS) + torch.log(2*torch.pi)/2 + (x - mean).pow(2)/(2*std.pow(2)))
+        return torch.sum(torch.log(std + EPS) + torch.log(torch.ones_like(x) *2*torch.pi)/2 + (x - mean).pow(2)/(2*std.pow(2)))
 
