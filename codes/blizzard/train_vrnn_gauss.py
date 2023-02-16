@@ -87,14 +87,21 @@ def test(epoch):
     return kld_loss, nll_loss
 
 
-# changing device
-if torch.cuda.is_available():
-    device = torch.device('cuda')
-    torch.cuda.empty_cache()
-else:
-    device = torch.device('cpu')
+if __name__ == "__main__":
 
+    # changing device
+    if torch.cuda.is_available():
+        device = torch.device('cuda')
+        torch.cuda.empty_cache()
+    else:
+        device = torch.device('cpu')
 
+    import configparser
+
+    config = configparser.ConfigParser()
+    config.read('config.ini')
+
+    hyperparameters = dict(config['Hyperparameters'])
 
 
 # ToDo: change parameters for blizzard
@@ -115,12 +122,12 @@ save_every = 10 # epochs
 patience = 3 # number of epochs to wait before stopping the training process
 
 
-#manual seed
-torch.manual_seed(seed)
-plt.ion()
+    #manual seed
+    torch.manual_seed(seed)
+    plt.ion()
 
-#init model + optimizer + datasets
-file_paths = fetch_npy_file_paths(DATA_DIR)
+    #init model + optimizer + datasets
+    file_paths = fetch_npy_file_paths(DATA_DIR)
 
 train_loader = torch.utils.data.DataLoader(AudioDataset(file_paths, frame_length=frame_size, seq_len=seq_len, train=True), batch_size=batch_size)
 test_loader = torch.utils.data.DataLoader(AudioDataset(file_paths, frame_length=frame_size, seq_len=seq_len, train=False), batch_size=batch_size)
@@ -135,7 +142,7 @@ conditions = 'gaussNLL'
 best_val_loss = float('inf')
 epochs_since_improvement = 0
 
-for epoch in range(1, n_epochs + 1):
+    for epoch in range(1, n_epochs + 1):
 
     #training
     _, train_nll_loss = train(epoch)
